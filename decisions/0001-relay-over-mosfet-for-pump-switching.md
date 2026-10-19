@@ -29,8 +29,10 @@ to avoid.
 A relay module sidesteps the gate-voltage problem entirely (mechanical
 switch, not voltage-threshold-dependent), already includes its own
 flyback diode protection on the coil as standard, and is sold in the
-same solderless, screw-terminal, 3-pin-header format the MOSFET module
-would have been — no change to the overall wiring plan.
+same solderless, screw-terminal style the MOSFET module would have been,
+so the overall wiring plan is similar (in practice the control-side
+connections needed stripped wire ends clamped in screw terminals, not
+jumpers pushed onto header pins).
 
 ## Consequences:
 Mechanical switch rather than solid-state — audible click, and contact

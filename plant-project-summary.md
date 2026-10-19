@@ -14,15 +14,12 @@ the sensor project).
 
 ```
 [Soil moisture sensor] --\
-                           \
-[Float switch] ------------+--> ESP32 (local control logic:
-                           /     interlock + hysteresis + state machine)
-                          /              |
-                         /               | Modbus TCP
-                        /                v
-                  [Relay] --> [Pump] --> [Ignition SCADA]
-                  (switches                (HMI, alarms,
-                   pump power)              historian)
+                          +--> ESP32 --(control signal)--> [Relay] --> [Pump]
+[Float switch] ----------/       |                        (switches the pump's
+                                 | Modbus TCP              separate 5V supply)
+                                 v
+                          [Ignition SCADA]
+                          (HMI, alarms, historian)
 ```
 
 - **Sensing:** capacitive soil moisture sensor (analog, powered from the
@@ -35,7 +32,8 @@ the sensor project).
 - **Actuation:** a 5V relay module switches the pump's power — chosen
   over the originally planned MOSFET after discovering the common IRF520
   module doesn't reliably switch on at ESP32's 3.3V logic level (see
-  `decisions/`).
+  `decisions/`). The pump runs from its own USB supply path through the
+  relay's isolated contacts, separate from the ESP32's power and ground.
 - **Supervisory layer:** Ignition SCADA (free trial, indefinitely
   renewable via 2-hour Gateway restart) communicates with the ESP32 via
   Modbus TCP, providing the HMI, alarms, and historian/trending —
@@ -49,12 +47,12 @@ the sensor project).
 | ESP32 dev board (pre-soldered headers) | 1 (reused from sensor project's node 1) | £0 |
 | Capacitive soil moisture sensor v1.2 (5-pack) | 1 pack | £7.59 |
 | USB mini submersible pump (5V, 8mm nozzle) | 1 | £6.95 |
-| Water level float switch (vertical, lid-mount) | 1 pack | £7.99 |
+| Water level float switches (vertical, lid-mount, 2-pack) | 1 pack | £7.99 |
 | 5V 1-channel relay module (optocoupler, screw terminal) | 1 | £5.58 |
 | Silicone tubing, 6mm ID x 8mm OD, 2m | 1 | £5.50 |
-| USB female-to-screw-terminal adapter (solderless) | 1 pack | ~£5-7 |
+| USB-to-screw-terminal adapters (solderless, one male, one female) | 1 pack | ~£5-7 |
 
-**Running total (excluding ESP32, pending confirmation): ~£33-40**
+**Running total (ESP32 and USB charger already owned; excludes the later jumper-wire pack): ~£33-40**
 
 ## Software Stack
 
@@ -70,9 +68,9 @@ the sensor project).
 The reasoning behind design choices (relay over MOSFET, pump type, float
 switch mounting style, cost-trimming decisions) is documented as
 individual ADRs in `decisions/`, same pattern as the sensor project.
-Several decisions were already made during parts selection, before any
-code was written — worth writing these up as the first ADRs before
-building begins, since the reasoning is freshest now.
+The first three ADRs (relay over MOSFET, float switch style, cost
+trimming) were written up before building began, while the reasoning
+was fresh.
 
 ## Build Journey
 
@@ -86,7 +84,11 @@ sensor project.
   receiving new data from this point — a deliberate pause, not a failure
   (historical data and the deployed app remain intact). Worth a note on
   the sensor project's own README reflecting this.
-- Confirm MicroPython Modbus TCP library choice before Stage 1.
+- Confirm the intended behaviour: soil-moisture-driven watering with a
+  low-level interlock (what these docs currently describe), or a tank
+  fill with low and high level floats (two floats were bought). The
+  control logic, Ignition tags and docs differ between the two.
+- Confirm MicroPython Modbus TCP library choice before Stage 3.
 - Obtain an actual plant.
 - Stage the build the same way the sensor project worked well: prove each
   piece in isolation (sensor read, float switch read, relay switching the
