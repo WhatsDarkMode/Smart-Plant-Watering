@@ -26,3 +26,23 @@
       LED (the relay-on indicator, separate from the red PWR LED) is
       dark during OFF stages, lit during ON, with a click at each
       change.
+2. Wired and tested the float switch.
+    - Joined each of the float's two bare leads to a stripped jumper wire
+      (twisted, then [taped separately / left untaped for the bench test]).
+      The switch has no polarity, so it doesn't matter which lead goes
+      where: one jumper went to pin 25 and the other to GND. Used pin 25
+      rather than the planned pin 27 because it avoided tangling wires with
+      the relay; it's a digital input with an internal pull-up, so WiFi
+      later won't affect it.
+    - Wrote 'esp32/float_test.py': pin 25 as an input with the internal
+      pull-up enabled, printing its value every half second.
+    - Moved the float along the stem (by hand, [and in a cup of water]) and
+      recorded the behaviour. With the float down the pin reads 0 (switch
+      closed, pulling the pin to ground). Raised to about halfway up the
+      stem it reads 1 (switch open, pin held high by the pull-up). The
+      change is clean, with no flicker.
+    - So: 1 = float up = water present, 0 = float down = water low.
+    - Noted for the interlock: with this orientation, a broken or
+      disconnected wire would also read 1, i.e. "water present", which is
+      the unsafe way to fail for a pump interlock. To revisit before
+      relying on it.
