@@ -46,3 +46,26 @@
       disconnected wire would also read 1, i.e. "water present", which is
       the unsafe way to fail for a pump interlock. To revisit before
       relying on it.
+3. Wired the pump circuit through the relay. Not yet powered or tested.
+    - Gave the pump its own power path, separate from the ESP32's: Anker
+      charger USB-A port, then a male USB-to-screw-terminal adapter, then
+      the relay, then a female adapter that receives the pump's USB plug.
+      The relay's output contacts are electrically isolated from its
+      control side, so the pump circuit doesn't connect to the ESP32 or
+      its ground. The ESP32 only drives the relay's IN terminal from
+      pin 26.
+    - The relay switches the positive wire only: male adapter VBUS to
+      relay COM, and relay NO to the female adapter's VBUS. The negative
+      wire runs straight from the male adapter's GND to the female
+      adapter's GND. Used NO (normally open) rather than NC, so the pump
+      is off whenever the relay is off or the board is resetting.
+    - Used only the VBUS and GND terminals on each adapter and ignored
+      D+, D- and shield. [Read the printed labels on both adapters before
+      wiring.]
+    - Made the connecting wires from three jumper wires with the
+      connectors cut off both ends, stripped and clamped under the screw
+      terminals, [red for the + side and black for the - side], and
+      tugged each one to check it held.
+    - Checked the relay's boot state before connecting the pump: with pin
+      26 set to input, as it is at every power-up, the relay stayed off
+      and the green LED stayed dark.
