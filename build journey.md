@@ -69,3 +69,13 @@
     - Checked the relay's boot state before connecting the pump: with pin
       26 set to input, as it is at every power-up, the relay stayed off
       and the green LED stayed dark.
+4. Tested the pump through the relay.
+    - Wrote 'esp32/pump_test.py': sets pin 26 to the relay's off state at
+      startup, switches the relay on for a fixed time (PUMP_SECONDS = 2),
+      then off. The off command is in a try/finally so the relay is
+      always released, even if the script is interrupted. Polarity is
+      held in named constants (RELAY_ON = 1, RELAY_OFF = 0), since this
+      module triggers on HIGH.
+    - Ran it with the pump fully submerged in a jug of water. 
+      The relay clicked on, the pump ran, and it stopped with a second click 
+      after the set time.
