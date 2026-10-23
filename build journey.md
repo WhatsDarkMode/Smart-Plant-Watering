@@ -79,3 +79,13 @@
     - Ran it with the pump fully submerged in a jug of water. 
       The relay clicked on, the pump ran, and it stopped with a second click 
       after the set time.
+5. Got the capacitance sensor reading.
+    - First two sensors read a flat 0 through the supplied cable and my
+      splices, while pin 34 itself tested fine (4095 touched to 3.3V, 0
+      to GND). A third sensor, wired with jumpers into the supplied
+      connector, worked immediately. [I believe the other 2 sensors may
+      have been faulty.]
+    - Readings with the third sensor on [3.3V]: about 2500 in air
+      (2481-2544), falling to about 590 in a cup of water (582-621),
+      settling over roughly 50 seconds. Dry is high and wet is low, as
+      expected for a capacitive sensor.
