@@ -89,3 +89,49 @@
       (2481-2544), falling to about 590 in a cup of water (582-621),
       settling over roughly 50 seconds. Dry is high and wet is low, as
       expected for a capacitive sensor.
+6. Wrote the combined local watering script and bench-tested it with
+     forced readings. Not yet run on the real plant.
+    - Soil readings from the pot: about 2100 bone dry, about 750 well
+      soaked. Set provisional thresholds with a deliberate gap between
+      them: start watering when the average reading goes above 1700, 
+      count it as watered once it drops below 1300. The gap is far wider 
+      than the roughly +/-20 wobble seen in earlier readings.
+    - Wrote 'esp32/watering_local.py': averages ten soil readings, checks
+      the float before every burst, runs the pump in short bursts (changed
+      from 3 to 5 seconds after testing, still provisional until the final
+      tubing is in place), waits for the water to reach the probe, then
+      rechecks. Settings sit in named constants at the top, including the
+      relay polarity (RELAY_ON = 1, RELAY_OFF = 0) and the float
+      polarity (FLOAT_WATER_PRESENT = 1).
+    - Safeguards: the relay is set to off the instant the script starts
+      and in a try/finally, so it is released however the script ends; a
+      cap of three bursts per episode, followed by a 30-minute cooldown if
+      the soil never responds, which also limits dry running if the float
+      ever misreports.
+    - Decided a float that reads 0 when no water is present counts as
+      "reservoir low", matching what I measured. Known weakness: a broken
+      float lead reads 1, which looks like "water present". The burst cap
+      is the safety net, and flipping the float later is a one-line
+      change to FLOAT_WATER_PRESENT.
+    - Reviewing the script, noticed both failure paths returned the same
+      result, so a reservoir running low mid-episode triggered the full
+      30-minute cooldown even though refilling would fix it. Changed
+      water_episode() to return why it ended (WATERED, RESERVOIR_LOW or
+      NO_RESPONSE), with a separate message for each, and the cooldown
+      only for NO_RESPONSE.
+    - Bench-tested over the sink with the pump in a cup of water, forcing
+      the soil reading in code rather than moving the probe:
+        - Test 1, float down with a forced dry reading of 2500: printed
+          "soil is dry but reservoir is low" and the pump never ran. Pass.
+        - Test 2, float up with a forced dry reading: three bursts, then
+          the "soil still dry after 3 bursts" message and the cooldown.
+          Also checked it with a loop feeding incrementing readings. Pass.
+        - Test 3, forced wet reading of 500: only the status line printed,
+          no pumping. Correct, since wet soil needs no watering.
+        - Test 4, soil dry then turning wet after the first burst: still
+          to run. A constant reading can't test it, because watering never
+          starts, so it needs a fake that starts at 2500 and returns 500
+          after about 8 seconds.
+    - Ran the script from Thonny, not saved as main.py, since the
+      unattended-operation safeguards (Auto/Manual states, restart
+      behaviour) aren't built yet.
