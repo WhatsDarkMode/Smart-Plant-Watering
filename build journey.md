@@ -135,3 +135,36 @@
     - Ran the script from Thonny, not saved as main.py, since the
       unattended-operation safeguards (Auto/Manual states, restart
       behaviour) aren't built yet.
+7. Separated the watering decision logic from the hardware code and tested it 
+   with automated simulations.
+    - Generated 'controller.py', containing a standalone 'WateringController' 
+      state machine, and 'test_controller.py', containing automated tests for 
+      its watering decisions. The controller receives soil readings and reservoir
+      status through functions, rather than accessing the ESP32 hardware directly. 
+      This lets the same logic run on a PC without the physical sensors or pump.
+    - The controller uses four states: IDLE (waiting for the next soil check),
+      PUMPING (running a timed burst), SOAKING (allowing water to spread
+      before rechecking the soil), and COOLDOWN (waiting 30 minutes after
+      three bursts before trying again).
+    - Kept the main safeguards: check the reservoir before pumping and
+      during each burst, limit each watering episode to three bursts, stop
+      once the soil reading falls below the wet threshold, and enter cooldown
+      if the soil never responds. The controller also uses elapsed-time
+      checks rather than blocking sleeps, leaving the main loop free to
+      perform other tasks.
+    - Created a PC-side test harness ('Rig') with a fake clock, fake soil
+      sensor and fake reservoir switch. This simulates changes in soil
+      moisture and reservoir level while recording when the pump should be
+      on or off. No physical hardware is operated by these tests.
+    - Added 'pytest.ini' with '[pytest]' and 'pythonpath = .' so pytest can
+      import 'controller.py' from the project directory.
+    - Ran the automated tests on the PC using pytest. All 14 tests passed,
+      covering wet and dry soil, reservoir-low conditions, five-second
+      watering bursts, the soak-and-recheck cycle, repeat bursts, the
+      three-burst limit, cooldown behaviour, reservoir loss during watering,
+      consistency of the pump state, and timer-counter wraparound.
+    - These results confirm that the controller behaves as expected in the
+      simulated scenarios. They do not test the actual plant response.
+    - The controller and tests are currently a separate implementation of the
+      watering logic, not yet integrated into the existing
+      'esp32/watering_local.py' script. 
