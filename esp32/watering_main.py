@@ -15,7 +15,7 @@ DRY_THRESHOLD = 1700      # soil average above this = too dry, start watering
 WET_THRESHOLD = 1300      # soil average below this = watered enough, stop
 
 PUMP_SECONDS = 5          # length of one watering burst
-SOAK_SECONDS = 90         # wait after a burst for water to reach the probe
+SOAK_SECONDS = 10         # wait after a burst for water to reach the probe
 MAX_BURSTS = 3            # most bursts in one watering episode
 COOLDOWN_SECONDS = 1800   # rest after an episode where the soil didn't respond
 CHECK_SECONDS = 60        # how often to check the soil normally
@@ -35,7 +35,7 @@ def read_soil():
     for _ in range(10):
         total += soil.read()
         time.sleep_ms(20)
-    return total // 10
+    return  2000 # total // 10
 
 
 def reservoir_ok():

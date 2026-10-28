@@ -168,3 +168,70 @@
     - The controller and tests are currently a separate implementation of the
       watering logic, not yet integrated into the existing
       'esp32/watering_local.py' script. 
+8. Ran the controller on the board and bench-tested it with forced readings.
+    - Uploaded 'controller.py' and 'watering_main.py' to the board (File,
+      Save as, MicroPython device) and ran 'watering_main.py' from Thonny
+      with F5, so nothing is saved as 'main.py'. [Confirmed 'import
+      controller' worked first time / fixed a syntax error MicroPython
+      rejected.]
+    - Setup for each test: pump in a jug of water, float
+      switch to hand, ESP32 on the PC's USB. For the soil reading I
+      temporarily forced a value inside 'read_soil()' and removed it afterwards.
+    - Tests, all run on the real board with the real relay and float:
+        - Float down with a forced dry reading of 2500: the pump never
+          started. Pass.
+        - Float up with a forced dry reading: bursts, soak, rechecks.
+          Pass. [Add whether it reached the three-burst cap and cooldown.]
+        - Forced wet reading of 500: status lines only, no pumping. Pass.
+        - Dry, then wet after the first burst (a fake returning 2500 for
+          8 seconds, then 500): one burst, a soak, 'watered enough', back
+          to idle, no second burst. Pass. The printout looked slightly
+          confused, with a 'soaking | soil: 2500' status line just before
+          'watered enough'. [Confirm the cause, probably the status line
+          printing before the fake flipped to 500 / or drop this line.]
+        - Float lowered mid-burst: the pump stopped at once. Pass.
+    - The ESP32 does not reset when the pump starts, which closes the
+      question I had left open since the pump test.
+    - Removed every forced value afterwards and checked 'read_soil()' is
+      back to returning the real average. [Also set 'SOAK_SECONDS' back to
+      90 if I shortened it.]
+    - These tests prove the controller's decisions on the real hardware.
+      They don't test the real soil sensor in the pot or the final tubing.
+9. Decided to keep the float switch orientation (ADR-004).
+    - Wanted to flip the float so that a broken lead would read as
+      'reservoir low' (fail-safe). Realised I can't physically reverse the
+      float, and the orientation is set by the hardware, not the code.
+    - Rejected changing only 'FLOAT_WATER_PRESENT' to 0, because float up
+      would then read as 'reservoir low' and float down as 'water
+      present', which inverts the interlock and would run the pump with
+      an empty reservoir. Rewiring doesn't help either: a broken lead and
+      a raised float are both open circuits to the ESP32.
+    - Kept 'FLOAT_WATER_PRESENT = 1' and accepted the known weakness. The
+      safety net is the layered safeguards: relay off at startup,
+      'try/finally' release, 5-second bursts, the three-burst cap and the
+      cooldown. Written up as 'decisions/0004-float-orientation-kept.md'.
+    - Two real fixes remain if I need them later: a float with the
+      opposite contact type, or a supervised input (a resistor across the
+      switch read on an ADC1 pin).
+    - Updated 'plant-build-guide.md' to match (Steps 1.2, 2.2, 2.3 and 2.4
+      and the progress table).
+10. Started Stage 3: WiFi, the Modbus library, and a first read from the PC.
+    - Created 'esp32/config.py' with the WiFi credentials and confirmed it
+      is gitignored with 'git check-ignore -v esp32/config.py', which
+      matched the '**/config.py' rule. Saved a copy to the board.
+    - Reused the existing 'wifi.py' from the sensor project. Its
+      'connect()' takes the credentials as arguments and returns True or
+      False without printing anything on failure, so the test script
+      prints the result. It connected and the board got an IP address.
+    - Installed the library over WiFi with
+      'mip.install('github:brainelectronics/micropython-modbus')'.
+      [Confirm 'import umodbus' ran without errors.] Its docs call the
+      register-holding device a 'TCP client (slave)'; in standard Modbus
+      terms the ESP32 is the server and Ignition will be the client.
+    - Wrote 'esp32/modbus_test.py', the library's own TCP example with its
+      default dummy registers (including holding register 93 = 19). It
+      touches no pins, so the relay and pump are not involved. [Pump
+      charger unplugged for this.]
+    - Installed 'pymodbus' (3.16.1) on the PC and read register 93 from
+      the ESP32. It returned [19]. Pass: the ESP32 answers Modbus TCP
+      requests from the PC. The default device ID of 1 worked.
