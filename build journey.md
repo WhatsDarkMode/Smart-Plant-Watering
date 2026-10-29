@@ -235,3 +235,115 @@
     - Installed 'pymodbus' (3.16.1) on the PC and read register 93 from
       the ESP32. It returned [19]. Pass: the ESP32 answers Modbus TCP
       requests from the PC. The default device ID of 1 worked.
+11. Checked that the Modbus server doesn't block the loop, and tested a write.
+    - Replaced the loop in 'modbus_test.py' with one that counts how many
+      times 'process()' runs in 5 seconds. Idle, it ran about 6,400 times
+      per 5 seconds (the first window was 3,764). So 'process()' returns
+      straight away when no request is waiting, and the controller loop
+      won't be held up by it. Pass.
+    - Read register 93 from the PC while that loop was running and it
+      still returned [19]. The count dipped slightly to about 5,200 to
+      6,500 while requests were handled. Pass.
+    - Wrote 42 to holding register 93 from the PC and read it back as
+      [42]. So the ESP32 accepts writes as well as reads. Pass.
+
+12. Designed the register map and decided to add Manual mode (ADR-005).
+    - Designed the map on paper before touching the code. Modbus only
+      lets a client write coils and holding registers, so readings go in
+      input registers and discrete inputs, which are read-only by design.
+        - Coil 0: manual pump request.
+        - Holding registers: 0 dry threshold, 1 wet threshold, 2 mode
+          (0 Auto, 1 Manual).
+        - Input registers: 0 soil reading, 1 state, 2 burst count, 3
+          heartbeat (seconds, wraps at 65535), 4 fault code.
+        - Discrete inputs: 0 pump on, 1 reservoir ok.
+    - Decided I want to be able to command the pump from Ignition, so
+      added a Manual mode instead of keeping Ignition monitor-only. The
+      controller enforces every limit itself, whatever Ignition writes:
+      one fixed 5-second burst per request (not a hold-to-run switch),
+      the reservoir interlock before and during the burst, a 10-second
+      gap between bursts, a cap of 60 seconds of manual pumping per hour,
+      and a fall-back to Auto after 10 minutes of no manual activity. The
+      board always starts in Auto with no request pending. Pump timings
+      stay fixed in the firmware, and threshold writes are clamped so the
+      gap between dry and wet can't be removed.
+    - Rejected: monitor-only, hold-to-run, bypassing the reservoir check,
+      and unlimited manual bursts. Written up as
+      'decisions/0005-manual-pump-control.md'.
+
+13. Added Manual mode and the Modbus layer to the code, and unit-tested it.
+    - 'controller.py': added the 'manual' and 'manual_pumping' states, a
+      mode switch, threshold clamping, fault codes (0 ok, 1 reservoir
+      low, 2 manual refused, 3 soil not responding) and the manual limits
+      above. Automatic behaviour is unchanged. The 'state' register now
+      has six values (0 idle, 1 pumping, 2 soaking, 3 cooldown, 4 manual,
+      5 manual pumping).
+    - 'watering_main.py': sets the relay off before any other import, and
+      starts WiFi without waiting for it, so the controller runs whether
+      or not WiFi, the library or Ignition are available. It no longer
+      uses 'wifi.py'. A blocking reconnect inside the loop could leave the
+      pump running past its burst. Modbus errors are caught and printed,
+      so they can never stop the loop.
+    - Found my copy of 'watering_main.py' still had a leftover
+      'return 2000' in 'read_soil()' and 'SOAK_SECONDS = 10' from the
+      bench tests. The new file restores 'total // 10' and 90. [Checked
+      the repo copy and the copy on the board.]
+    - Added 'test_manual.py' with 23 tests: manual bursts, refusals, the
+      gap, the hourly cap, the timeout, mode switching mid-burst,
+      threshold clamping and fault codes.
+    - Mistakes getting pytest to run:
+        - Ran 'python test_controller.py', which printed nothing because
+          the file only defines tests. Tests are run with 'pytest'.
+        - 'python test_manual.py' failed with 'No module named
+          controller', because plain Python only looks in the file's own
+          folder. A stale copy of 'controller.py' in the tests folder
+          would also have shadowed the real one, so I deleted it.
+        - 'pytest' tried to run my hardware scripts ('relay_test.py' and
+          the others, which match '*_test.py') and failed on 'import
+          machine'. Fixed with one 'pytest.ini' in the repo root
+          ('pythonpath = esp32', 'testpaths = tests', 'python_files =
+          test_*.py').
+        - The ini file first failed with 'unexpected value continuation'
+          because a line was indented. Rewrote it from the command line.
+    - Ran 'pytest' from the repo root: 37 passed (my 14 original tests
+      plus the 23 new ones). The 14 passing means Automatic behaviour
+      didn't change. [Added '.pytest_cache/' to '.gitignore'.]
+
+14. Tested Manual mode and the Modbus registers on the board.
+    - Uploaded the new 'controller.py' and 'watering_main.py' and ran
+      'watering_main.py' from Thonny. It printed 'Modbus server listening
+      on 192.168.1.67 502'. No 'modbus ...' error lines appeared, and the
+      published values updated, so the library's 'set_...' calls work.
+      [Pump charger unplugged / plugged in for these tests.]
+    - Used 'modbus_check.py' on the PC (a small script that does one read
+      or write per command). Results:
+        - 'read' at the start: Auto, thresholds 1700 and 1300, fault 1
+          (reservoir low). Correct: the float was down, and the probe was
+          in air so the soil read dry (about 2600).
+        - Switched to Manual, requested a pump burst with the float down:
+          refused, 'manual pump refused: reservoir low'. Pass.
+        - Raised the float and requested a burst: one burst, then 'manual
+          burst done'. Pass. [Relay clicked on and off.]
+        - Requested again straight away: 'refused: wait 10 s' (fault 2),
+          then 'wait 3 s', then a burst once the gap had passed. Pass.
+        - Wrote 9 to the mode register: mode unchanged. Pass.
+        - Wrote dry 5000 and wet 100: the board corrected it to 4000 and
+          100. Pass. Reset them to 1700 and 1300.
+        - Switched back to Auto: it checked the soil straight away and
+          started a soil-driven burst. Pass.
+    - Ctrl+C in the command prompt showed 'KeyboardInterrupt' tracebacks.
+      That was just me stopping the script.
+    - Anomaly: some 'read' outputs showed 'pump on: True' and 'reservoir
+      ok: False' while Thonny showed the pump idle and the reservoir OK.
+      The two discrete inputs look swapped when read together, while
+      single-bit reads (as in the 'pump' polling) were correct. I suspect
+      the library packs the bits the wrong way round. If so, Ignition
+      could show them swapped if it reads both in one request. Not yet
+      confirmed.
+    - Minor: in Manual mode, fault 1 stays set after the reservoir is
+      refilled, until the next accepted burst or a mode change. [Decide
+      whether to clear it when the float recovers.]
+    - Not yet done: a real manual burst with the pump plugged in over the
+      sink, and confirming the discrete input order with the 'bits'
+      command in 'modbus_check.py'. If it confirms the swap, the plan is
+      to move pump on and reservoir ok into input registers (0 or 1).

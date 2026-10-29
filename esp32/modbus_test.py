@@ -1,6 +1,10 @@
 import network
+import time
 import config, wifi
 from umodbus.tcp import ModbusTCP
+
+n = 0
+t0 = time.ticks_ms()
 
 if not wifi.connect(config.WIFI_SSID, config.WIFI_PASSWORD):
     raise RuntimeError("WiFi failed")
@@ -30,3 +34,8 @@ while True:
         break
     except Exception as e:
         print("error:", e)
+    n += 1
+    if time.ticks_diff(time.ticks_ms(), t0) >= 5000:
+        print("loops in 5s:", n)
+        n = 0
+        t0 = time.ticks_ms()
