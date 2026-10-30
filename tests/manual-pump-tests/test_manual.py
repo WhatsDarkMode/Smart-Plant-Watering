@@ -267,3 +267,29 @@ def test_auto_watering_still_works():
     assert r.c.message == "watered enough"
     assert r.pump_ms_total == 5000
     assert r.c.fault == FAULT_NONE
+
+
+def test_manual_reservoir_fault_clears_when_reservoir_recovers():
+    r = Rig(reservoir=False)
+    r.manual()
+    r.request()
+    r.run(500)
+    assert r.c.fault == FAULT_RESERVOIR_LOW
+    r.run(500)
+    assert r.c.fault == FAULT_RESERVOIR_LOW      # still low, still faulted
+    r.reservoir = True
+    r.run(300)
+    assert r.c.fault == FAULT_NONE
+    assert r.pump_ms_total == 0                  # clearing never pumps
+
+
+def test_gap_refusal_fault_is_not_cleared_by_reservoir_logic():
+    r = Rig()
+    r.manual()
+    r.request()
+    r.run(5200)
+    r.request()
+    r.run(300)
+    assert r.c.fault == FAULT_MANUAL_REFUSED
+    r.run(300)
+    assert r.c.fault == FAULT_MANUAL_REFUSED

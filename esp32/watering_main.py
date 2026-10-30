@@ -70,9 +70,10 @@ IREG_BURSTS = 2           # bursts so far in this episode
 IREG_HEARTBEAT = 3        # seconds counter, wraps at 65535
 IREG_FAULT = 4            # 0 ok 1 reservoir low 2 manual refused
                           # 3 soil not responding
-# Discrete inputs (read-only)
-IST_PUMP_ON = 0
-IST_RESERVOIR_OK = 1
+IREG_PUMP_ON = 5          # 0 or 1
+IREG_RESERVOIR_OK = 6     # 0 or 1
+# There are deliberately no discrete inputs: the library returns the bits
+# of a multi-bit read in reverse order, so on/off values live in registers.
 
 # ---------- Hardware ----------
 float_sw = Pin(25, Pin.IN, Pin.PULL_UP)
@@ -173,10 +174,8 @@ def build_registers():
             "BURSTS": {"register": IREG_BURSTS, "len": 1, "val": 0},
             "HEARTBEAT": {"register": IREG_HEARTBEAT, "len": 1, "val": 0},
             "FAULT": {"register": IREG_FAULT, "len": 1, "val": 0},
-        },
-        "ISTS": {
-            "PUMP_ON": {"register": IST_PUMP_ON, "len": 1, "val": 0},
-            "RESERVOIR_OK": {"register": IST_RESERVOIR_OK, "len": 1,
+            "PUMP_ON": {"register": IREG_PUMP_ON, "len": 1, "val": 0},
+            "RESERVOIR_OK": {"register": IREG_RESERVOIR_OK, "len": 1,
                              "val": 0},
         },
     }
@@ -249,8 +248,8 @@ def modbus_out():
         server.set_ireg(IREG_BURSTS, clamp16(controller.bursts))
         server.set_ireg(IREG_HEARTBEAT, heartbeat)
         server.set_ireg(IREG_FAULT, controller.fault)
-        server.set_ist(IST_PUMP_ON, controller.pump_on)
-        server.set_ist(IST_RESERVOIR_OK, reservoir_ok())
+        server.set_ireg(IREG_PUMP_ON, 1 if controller.pump_on else 0)
+        server.set_ireg(IREG_RESERVOIR_OK, 1 if reservoir_ok() else 0)
     except Exception as e:
         modbus_error("out", e)
 

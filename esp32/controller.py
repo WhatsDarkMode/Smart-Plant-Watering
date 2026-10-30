@@ -217,6 +217,8 @@ class WateringController:
                 self._enter(IDLE, now_ms, "cooldown over")
 
         elif self.state == MANUAL:
+            if self.fault == FAULT_RESERVOIR_LOW and self.reservoir_ok():
+                self.fault = FAULT_NONE     # the reservoir has recovered
             if self.manual_request:
                 self.manual_request = False
                 self._manual_activity = now_ms

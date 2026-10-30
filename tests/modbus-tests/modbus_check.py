@@ -23,9 +23,8 @@ if not c.connect():
 
 
 def show():
-    ir = c.read_input_registers(0, count=5).registers
+    ir = c.read_input_registers(0, count=7).registers
     hr = c.read_holding_registers(0, count=3).registers
-    ist = c.read_discrete_inputs(0, count=2).bits[:2]
     coil = c.read_coils(0, count=1).bits[:1]
     print("mode              :", hr[2], MODES.get(hr[2], "?"))
     print("dry threshold     :", hr[0])
@@ -36,8 +35,8 @@ def show():
     print("burst count       :", ir[2])
     print("heartbeat (s)     :", ir[3])
     print("fault             :", ir[4], FAULTS.get(ir[4], "?"))
-    print("pump on           :", ist[0])
-    print("reservoir ok      :", ist[1])
+    print("pump on           :", bool(ir[5]))
+    print("reservoir ok      :", bool(ir[6]))
 
 
 def write_reg(address, value):
@@ -62,8 +61,9 @@ elif cmd == "pump":
     print("write coil 0 = True ->", "ERROR" if r.isError() else "ok")
     for _ in range(8):
         time.sleep(1)
-        state = c.read_input_registers(1, count=1).registers[0]
-        pump = c.read_discrete_inputs(0, count=1).bits[0]
+        ir = c.read_input_registers(1, count=5).registers
+        state = ir[0]
+        pump = bool(ir[4])
         coil = c.read_coils(0, count=1).bits[0]
         print("state:", STATES.get(state, state), "| pump on:", pump,
               "| coil:", coil)

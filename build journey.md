@@ -347,3 +347,72 @@
       sink, and confirming the discrete input order with the 'bits'
       command in 'modbus_check.py'. If it confirms the swap, the plan is
       to move pump on and reservoir ok into input registers (0 or 1).
+          - Anomaly: some 'read' outputs showed 'pump on: True' and 'reservoir
+      ok: False' while Thonny showed the pump idle and the reservoir OK.
+      Confirmed in the next entry.
+    - Minor: in Manual mode, fault 1 stayed set after the reservoir was
+      refilled. Fixed in the next entry.
+
+15. Fixed the discrete input bit order, and ran a real manual burst.
+    - Added a 'bits' command to 'modbus_check.py' that reads the two
+      discrete inputs separately and then together. With the float up and
+      the pump idle: address 0 alone read False, address 1 alone read
+      True, but both together read [True, False]. So a multi-bit read
+      returns the bits in reverse order (the single-bit reads were
+      right). I suspect the library packs the bits the wrong way round.
+      I haven't checked its source.
+    - That matters because Ignition may read several addresses in one
+      request and would show pump on and reservoir ok swapped. Fixed it
+      by removing the discrete inputs and moving both values into input
+      registers (5 pump on, 6 reservoir ok, each 0 or 1), since register
+      reads aren't affected. The register map is now: coil 0 manual pump
+      request; holding registers 0 to 2 (dry threshold, wet threshold,
+      mode); input registers 0 to 6 (soil, state, burst count, heartbeat,
+      fault, pump on, reservoir ok). Only one coil exists, so the same
+      problem can't bite yet, but multi-coil reads would have it too.
+    - Also changed the controller so that in Manual mode, fault 1
+      (reservoir low) clears itself once the float comes back up. The
+      gap and hourly-limit refusals (fault 2) are not cleared that way.
+      Added two tests.
+    - Uploaded the new 'controller.py' and 'watering_main.py'. 'pytest'
+      from the repo root: 39 passed (my 14 original tests plus 25 for
+      Manual mode, thresholds and faults). No 'modbus ...' error lines
+      appeared in Thonny, so the library accepts the register definitions
+      without the discrete input section.
+    - Re-ran 'modbus_check.py read': 'pump on' and 'reservoir ok' now
+      match what Thonny reports (soaking with the pump off and the
+      reservoir OK, then manual pumping with the pump on). Pass.
+    - Real manual burst with the pump plugged in: switched to Manual and
+      requested a burst. The rig pumped water for one burst, stopped by
+      itself, and the request coil cleared straight away. Switching back
+      to Auto started a soil-driven burst at once (the probe was in air,
+      so it read dry). Pass. [Add whether the relay clicked, and whether
+      the ESP32 stayed connected, which it did last time.]
+    - Stage 3 is done: the PC reads and writes the real controller over
+      Modbus TCP.
+
+16. Started Stage 4: installed Ignition and connected the ESP32.
+    - Downloaded and installed Ignition 8.3 on the PC. First-time setup
+      asked for the HTTP, HTTPS and gateway network ports (8088, 8043,
+      8060). Left all three at the defaults. They are for local use only,
+      and I haven't forwarded them on the router.
+    - Created a Maker Edition licence on my Inductive Automation account.
+      It comes with an 8-character key and a separate, very long
+      activation token, and the gateway needs both, pasted into separate
+      fields. [Activated / still on the two-hour trial. Say which, and
+      whether I picked Maker at the first prompt of setup.] Keep the token
+      private, and don't regenerate it without updating the gateway.
+    - Spent a few minutes looking for 'Connections' because the home page
+      before logging in only shows Home, Designer and Perspective. The
+      config sections appear after clicking Log In in the top-right.
+    - Added the ESP32 as a device: Modbus TCP, name 'PlantESP32',
+      hostname 192.168.1.67, port 502. [Zero-based Addressing ticked:
+      confirm.] It shows as Connected. Ignition's address prefixes are
+      HR (holding), IR (input) and C (coil). With zero-based addressing
+      on, HR0 is holding register 0 on the board. Left unticked, every
+      address would be off by one.
+    - Not yet done: creating tags in the Designer from the register map
+      ('[PlantESP32]HR2' for mode, 'IR5' for pump on, and so on), the HMI
+      screen, alarms, and checking whether the library accepts more than
+      one Modbus client at once (so I know whether 'modbus_check.py' works
+      while Ignition is connected).
