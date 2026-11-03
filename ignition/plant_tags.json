@@ -1,0 +1,91 @@
+{
+  "name": "Plant",
+  "tagType": "Folder",
+  "tags": [
+    {
+      "name": "Soil",
+      "opcItemPath": "[PlantESP32]IR0",
+      "opcServer": "Ignition OPC UA Server",
+      "readOnly": true,
+      "tagType": "AtomicTag",
+      "valueSource": "opc"
+    },
+    {
+      "name": "State",
+      "opcItemPath": "[PlantESP32]IR1",
+      "opcServer": "Ignition OPC UA Server",
+      "readOnly": true,
+      "tagType": "AtomicTag",
+      "valueSource": "opc"
+    },
+    {
+      "name": "Bursts",
+      "opcItemPath": "[PlantESP32]IR2",
+      "opcServer": "Ignition OPC UA Server",
+      "readOnly": true,
+      "tagType": "AtomicTag",
+      "valueSource": "opc"
+    },
+    {
+      "name": "Heartbeat",
+      "opcItemPath": "[PlantESP32]IR3",
+      "opcServer": "Ignition OPC UA Server",
+      "readOnly": true,
+      "tagType": "AtomicTag",
+      "valueSource": "opc"
+    },
+    {
+      "name": "Fault",
+      "opcItemPath": "[PlantESP32]IR4",
+      "opcServer": "Ignition OPC UA Server",
+      "readOnly": true,
+      "tagType": "AtomicTag",
+      "valueSource": "opc"
+    },
+    {
+      "name": "PumpOn",
+      "opcItemPath": "[PlantESP32]IR5",
+      "opcServer": "Ignition OPC UA Server",
+      "readOnly": true,
+      "tagType": "AtomicTag",
+      "valueSource": "opc"
+    },
+    {
+      "name": "ReservoirOk",
+      "opcItemPath": "[PlantESP32]IR6",
+      "opcServer": "Ignition OPC UA Server",
+      "readOnly": true,
+      "tagType": "AtomicTag",
+      "valueSource": "opc"
+    },
+    {
+      "name": "DryThreshold",
+      "opcItemPath": "[PlantESP32]HR0",
+      "opcServer": "Ignition OPC UA Server",
+      "tagType": "AtomicTag",
+      "valueSource": "opc"
+    },
+    {
+      "name": "WetThreshold",
+      "opcItemPath": "[PlantESP32]HR1",
+      "opcServer": "Ignition OPC UA Server",
+      "tagType": "AtomicTag",
+      "valueSource": "opc"
+    },
+    {
+      "name": "Mode",
+      "opcItemPath": "[PlantESP32]HR2",
+      "opcServer": "Ignition OPC UA Server",
+      "tagType": "AtomicTag",
+      "valueSource": "opc"
+    },
+    {
+      "name": "ManualPump",
+      "opcItemPath": "[PlantESP32]C0",
+      "opcServer": "Ignition OPC UA Server",
+      "dataType": "Boolean",
+      "tagType": "AtomicTag",
+      "valueSource": "opc"
+    }
+  ]
+}

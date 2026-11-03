@@ -399,20 +399,87 @@
     - Created a Maker Edition licence on my Inductive Automation account.
       It comes with an 8-character key and a separate, very long
       activation token, and the gateway needs both, pasted into separate
-      fields. [Activated / still on the two-hour trial. Say which, and
-      whether I picked Maker at the first prompt of setup.] Keep the token
-      private, and don't regenerate it without updating the gateway.
+      fields. The Designer login screen shows 'Maker Edition', so it
+      activated. [Add whether I picked Maker at the first prompt of
+      setup.] Keep the token private, and don't regenerate it without
+      updating the gateway.
     - Spent a few minutes looking for 'Connections' because the home page
       before logging in only shows Home, Designer and Perspective. The
       config sections appear after clicking Log In in the top-right.
     - Added the ESP32 as a device: Modbus TCP, name 'PlantESP32',
-      hostname 192.168.1.67, port 502. [Zero-based Addressing ticked:
-      confirm.] It shows as Connected. Ignition's address prefixes are
-      HR (holding), IR (input) and C (coil). With zero-based addressing
-      on, HR0 is holding register 0 on the board. Left unticked, every
-      address would be off by one.
-    - Not yet done: creating tags in the Designer from the register map
-      ('[PlantESP32]HR2' for mode, 'IR5' for pump on, and so on), the HMI
-      screen, alarms, and checking whether the library accepts more than
-      one Modbus client at once (so I know whether 'modbus_check.py' works
-      while Ignition is connected).
+      hostname 192.168.1.67, port 502, Zero-based Addressing ticked. It
+      shows as Connected. Ignition's address prefixes are HR (holding),
+      IR (input) and C (coil). With zero-based addressing on, HR0 is
+      holding register 0 on the board. Left unticked, every address would
+      be off by one. The tag values later matched the board, which
+      confirms the addressing is right.
+
+17. Got locked out of the Gateway and reset the password.
+    - The username and password I tried in the Designer failed with
+      'Login failed', and the same credentials failed on the Gateway web
+      page. [Cause: forgot / typo / not sure.]
+    - Reset it with the gateway command-line utility, from the Ignition
+      folder in a Command Prompt run as administrator: 'gwcmd -p', then
+      'gwcmd -r'. The first attempt failed with 'access denied' because
+      the Command Prompt wasn't elevated. After that it printed 'Password
+      has been reset' and 'Gateway needs to be commissioned', and the
+      Gateway page then asked me to create a new user.
+    - Created a new user and saved the password in [a password manager].
+      The reset only recreates the login: the device connection and the
+      Maker licence were still there afterwards, and I did not need to
+      redo any setup.
+    - The reset creates a temporary user source behind the scenes. Left
+      it alone, and don't delete it until the normal one is known to
+      work.
+
+18. Created the Designer project and the tags.
+    - Installed the Designer Launcher from the Gateway's Designer page
+      and opened it. The tile in 'My Designers' is the saved Gateway
+      connection, not a project. Created the project 'PlantWatering'
+      from the Open/Create Project dialog.
+    - Created the first tag by hand as a test: OPC tag 'Heartbeat', OPC
+      server 'Ignition OPC UA Server', item path '[PlantESP32]IR3',
+      Integer, read only. It counted in seconds, which proves the whole
+      chain: PC, Modbus, the ESP32's registers, Ignition's OPC server and
+      the Designer.
+    - Exported that tag as JSON and used it as a template to generate
+      'ignition/plant_tags.json': 11 OPC tags in a 'Plant' folder.
+      Seven are read only ('Soil', 'State', 'Bursts', 'Heartbeat',
+      'Fault', 'PumpOn', 'ReservoirOk', input registers 0 to 6) and four
+      are writable ('DryThreshold' HR0, 'WetThreshold' HR1, 'Mode' HR2,
+      'ManualPump' coil C0, a Boolean).
+    - Imported it with Import Tags, Direct. (Interactive opens the
+      Advanced Tag Import tool, which lets me edit tags before they are
+      created. I didn't need that.) All 11 tags came in with live
+      values. 'ManualPump' shows as a checkbox because it's a Boolean.
+    - The values matched the rig: 'Soil' about 2,345 (probe in air),
+      'ReservoirOk' 1 with the float up, 'PumpOn' 0, thresholds 1,700 and
+      1,300. 'State' 3, 'Fault' 3 and 'Bursts' 3 were correct too: the
+      controller was in cooldown after three bursts with no response
+      from the soil.
+
+19. Tested control from Ignition.
+    - First write attempt ('Mode' to 1) failed with 'Bad_GatewayCommOff'.
+      The Designer starts in Comm Read-Only mode, which blocks tag writes
+      as a safety feature. Fixed with Project, then Comm Read/Write. It's
+      a Designer session setting, so Perspective screens aren't affected.
+    - Then the write tests, all as expected: [pump in water / unplugged]
+        - 'Mode' to 1: Thonny printed 'manual mode: automatic watering
+          paused' and 'State' went to 4. Pass.
+        - Ticked 'ManualPump': the box cleared itself within a second,
+          'State' 5 and 'PumpOn' 1 for about 5 seconds, relay clicked.
+          Pass.
+        - Ticked it again straight away: refused, 'Fault' 2, 'manual pump
+          refused: wait N s'. Pass.
+        - 'DryThreshold' to 5000: clamped to 4000. Set it back to 1700.
+          Pass.
+        - 'Mode' to 9: snapped back to 1. Pass.
+        - 'Mode' to 0: checked the soil at once and started an automatic
+          burst, since the probe was in air. Pass.
+    - Stage 4 so far: Ignition reads and controls the real rig over
+      Modbus, with the controller's limits still enforced on the board.
+    - Not yet done: the Perspective screen (mode switch, pump-now button,
+      readings), alarms (low reservoir, soil not responding, frozen
+      heartbeat), the historian and trends, and checking whether the
+      library accepts more than one Modbus client at once (so I know
+      whether 'modbus_check.py' works while Ignition is connected).
