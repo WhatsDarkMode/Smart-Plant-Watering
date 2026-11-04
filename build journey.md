@@ -483,3 +483,6 @@
       heartbeat), the historian and trends, and checking whether the
       library accepts more than one Modbus client at once (so I know
       whether 'modbus_check.py' works while Ignition is connected).
+
+20. Creating a Perspective
+    - Started creating a perspective
