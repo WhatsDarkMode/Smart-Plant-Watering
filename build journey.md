@@ -486,3 +486,4 @@
 
 20. Creating a Perspective
     - Started creating a perspective
+    - Finished adding all tags and buttons.
