@@ -489,3 +489,4 @@
     - Finished adding all tags and buttons.
     - Finished alarms started adding historian charts
     - Finalised perspective layout
+    - Finishing touches to perspective + creating container box for rig
