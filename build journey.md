@@ -414,24 +414,6 @@
       be off by one. The tag values later matched the board, which
       confirms the addressing is right.
 
-17. Got locked out of the Gateway and reset the password.
-    - The username and password I tried in the Designer failed with
-      'Login failed', and the same credentials failed on the Gateway web
-      page. [Cause: forgot / typo / not sure.]
-    - Reset it with the gateway command-line utility, from the Ignition
-      folder in a Command Prompt run as administrator: 'gwcmd -p', then
-      'gwcmd -r'. The first attempt failed with 'access denied' because
-      the Command Prompt wasn't elevated. After that it printed 'Password
-      has been reset' and 'Gateway needs to be commissioned', and the
-      Gateway page then asked me to create a new user.
-    - Created a new user and saved the password in [a password manager].
-      The reset only recreates the login: the device connection and the
-      Maker licence were still there afterwards, and I did not need to
-      redo any setup.
-    - The reset creates a temporary user source behind the scenes. Left
-      it alone, and don't delete it until the normal one is known to
-      work.
-
 18. Created the Designer project and the tags.
     - Installed the Designer Launcher from the Gateway's Designer page
       and opened it. The tile in 'My Designers' is the saved Gateway
@@ -484,9 +466,138 @@
       library accepts more than one Modbus client at once (so I know
       whether 'modbus_check.py' works while Ignition is connected).
 
-20. Creating a Perspective
-    - Started creating a perspective
-    - Finished adding all tags and buttons.
-    - Finished alarms started adding historian charts
-    - Finalised perspective layout
-    - Finishing touches to perspective + creating container box for rig
+20. Built the Perspective view: live readings.
+    - Created the view 'PlantStatus' in the 'PlantWatering' project (the
+      tile in 'My Designers' is the saved Gateway connection, not a
+      project; projects are created from the Open/Create Project dialog).
+    - Added caption and value labels bound to the tags with the Tag
+      binding: 'Soil', 'ReservoirOk', 'PumpOn' and 'Heartbeat'. All four
+      updated live.
+    - Added labels that turn the numbers into words using Expression
+      bindings: 'State' (Idle, Pumping (auto), Soaking, Cooldown, Manual,
+      Pumping (manual)), 'Mode', and 'Fault'. 'ReservoirOk' and 'PumpOn'
+      became OK/LOW and ON/OFF.
+    - Mistake: the 'State' label showed the raw '5' with a red icon in the
+      binding preview, with the message 'Uncertain_LastKnownValue'. I
+      first suspected the connection to the board, but the board was
+      fine. The expression used 'switch(...)'. Replacing it with nested
+      'if(...)' fixed it. I don't know why 'switch' failed, so I use
+      nested 'if' for these now.
+
+21. Added the controls to the view.
+    - Three buttons, each with an 'onActionPerformed' script that calls
+      'system.tag.writeBlocking': 'Auto' writes 0 to 'Mode', 'Manual'
+      writes 1, and 'Pump now' writes True to 'ManualPump'.
+    - Bound the 'Pump now' button's 'props.enabled' to
+      '{[default]Plant/Mode} = 1', so it greys out in Auto. This is only a
+      hint. The board refuses a pump request in Auto whatever the screen
+      does.
+    - Tested from the screen with the rig running [pump in water /
+      unplugged]. The buttons worked and the tags followed: Manual mode,
+      a manual burst, and Auto starting a soil-driven burst. Perspective
+      doesn't show an error if a script's write fails, so a button that
+      does nothing means checking the tag.
+
+22. Configured alarms (Stage 4).
+    - Three alarms, set in each tag's Tag Editor under Alarms:
+        - 'ReservoirLow': 'ReservoirOk' equal to 0, High.
+        - 'SoilNotResponding': 'Fault' equal to 3, High.
+        - 'DeviceOffline': 'Heartbeat' on Bad Quality, Critical.
+    - Added an Alarm Status Table to the view and tested all three
+      [reservoir: held the float down; soil not responding: left the
+      probe in air through three bursts; device offline: stopped the
+      script in Thonny]. All three fired. The offline test also settled a
+      doubt I had about whether stale tags would count as Bad quality.
+    - Not covered: a board that hangs while the connection stays up would
+      show a frozen heartbeat with good quality. That's for failure
+      testing.
+
+23. Historian and trend chart.
+    - Set up a historian named 'Smart Plant Watering' [Core Historian:
+      confirm]. Turned on history for the tags worth recording [list:
+      'Soil', 'State', 'Fault', 'PumpOn', 'ReservoirOk', 'Mode'], with
+      On Change sampling [and a deadband on 'Soil'].
+    - Added a Power Chart. Mistake: dragging a tag from the Designer's Tag
+      Browser onto the chart doesn't add a pen. It pops up a menu of
+      components (gauge, label and so on) instead. Pens are added through
+      the chart's own tag browser (the tag icon on the chart) while the
+      view is running.
+    - Pens added in a browser session disappeared on refresh. Adding them
+      in the Designer's Preview Mode saved them into the chart's
+      'props.pens' property. Three pens: 'Soil', 'PumpOn' and 'State'.
+    - 'Soil' (about 2,300) dwarfs the other two (0 to 5), so one axis
+      flattened them. Fixed it with two plots in the same chart, 'Soil' on
+      the first and 'PumpOn' and 'State' on the second, sharing a time
+      axis. Set the default range to 30 minutes
+      ('config.unitOfTime' 30, 'config.measureOfTime' minutes), because
+      'Last 8 hours' squashed the first few minutes of history into a
+      sliver.
+    - Checked each pen was bound to the right tag by comparing its Current
+      Value with the tag, and the end of 'data.source' (it should end in
+      '/tag:Plant/Soil' and so on).
+
+24. Redesigned the layout, then adjusted it.
+    - The first version was a scatter of labels. Planned a card layout
+      (header, Readings, Controls, Settings, Trends, Alarms) and drew a
+      mock-up first.
+    - A 'card' isn't a component. It's a Coordinate Container styled with
+      a white background, rounded corners and a border. Copied all the
+      components out of the view as JSON (Ctrl+A, Ctrl+C), pasted them
+      here, and got back a JSON file that rebuilt them as six cards with
+      my bindings and scripts kept. Deleted the old components, pasted the
+      new ones, and set the root's background to '#f3f4f6'. It pasted
+      first time. [Backed up the view first.]
+    - Additions: two numeric entry fields for the dry and wet thresholds
+      (bidirectional tag bindings), colour bindings for reservoir and
+      fault, highlighted Auto/Manual buttons, a 'Device online' badge
+      using 'isGood' on the heartbeat, and a mode badge.
+    - Adjustments afterwards:
+        - Hid the pen table ('showPenControlDisplay') to give the plots
+          room. Then found the chart was in its compact layout, because
+          it's narrower than 750px, which has its own legend and a bottom
+          button bar instead. Brought the pen table back, [trimmed its
+          columns] and made the chart and cards taller.
+        - Narrowed the Trends card and widened the Alarms card.
+        - Replaced the alarm table's long 'Display Path' column with the
+          'Label' column, which shows 'ReservoirLow' and so on.
+    - Mistakes: edited a card's properties by accident several times,
+      because clicking on the canvas selected the card, not the chart
+      inside it. The Project Browser tree is reliable. [The Property
+      Editor also vanished briefly: restored it by ...]
+    - Happy with the look. [Exported the project into 'ignition/' for
+      Git, and re-exported the tags to 'ignition/plant_tags.json'.]
+
+25. Added a daily cap on automatic pumping.
+    - Problem: if the soil never gets wet (a probe stuck dry or out of the
+      soil, a tube off), the controller does three 5-second bursts, rests
+      30 minutes, then tries again, indefinitely, which is about 12
+      minutes of pumping a day. Didn't want to leave it unattended with
+      that, as I haven't measured the flow rate yet.
+    - 'controller.py': new setting 'auto_daily_budget_ms' (default None,
+      so existing behaviour and tests are unchanged), a rolling 24-hour
+      window, and fault code 4 ('daily limit reached'). When the cap says
+      no, it stays idle with fault 4, or stops mid-episode. A wet reading
+      clears the fault, and the window resets 24 hours after it began.
+      Manual pumping has its own hourly cap and isn't affected.
+      'watering_main.py' passes 'AUTO_DAILY_BUDGET_SECONDS = 60' (12
+      bursts, or about four full watering episodes a day).
+    - Tests: 'test_pump_cap.py' [file name] with 7 tests, including a
+      simulated full day with a probe that never gets wet (it pumped for
+      at most 60 s) and the manual path being unaffected. Compared with
+      the original controller over 200 random runs with no cap set:
+      identical behaviour. 'pytest' from the repo root: [46] passed.
+    - Learnt how pytest finds tests, from the root 'pytest.ini':
+      'testpaths = tests' (where to look), 'python_files = test_*.py'
+      (which files), and functions named 'test_*' inside them. A file
+      doesn't need registering anywhere. 'pytest --collect-only -q' lists
+      what it found.
+    - Uploaded the new 'controller.py' and 'watering_main.py' to the board
+      and [checked it started normally / tested the cap by temporarily
+      setting 'AUTO_DAILY_BUDGET_SECONDS' to 10 with the probe dry, and
+      saw fault 4 after two bursts, then set it back to 60].
+    - In Ignition: added '4' ('Daily limit reached') to the 'Fault' label
+      expression and a 'DailyLimitReached' alarm ('Fault' equal to 4,
+      High). [Confirm done.]
+
+26. Packaging the rig. [Fill in as you go.]
+    - Got a cardboard box and cut some holes in it

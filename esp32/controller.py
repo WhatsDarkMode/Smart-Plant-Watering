@@ -20,6 +20,7 @@ FAULT_NONE = 0
 FAULT_RESERVOIR_LOW = 1
 FAULT_MANUAL_REFUSED = 2        # gap or hourly limit
 FAULT_SOIL_NO_RESPONSE = 3      # burst cap reached, soil never got wet
+FAULT_DAILY_LIMIT = 4           # automatic pumping hit its 24-hour cap
 
 # Numbers for the Modbus 'state' register
 STATE_CODES = {
@@ -38,6 +39,7 @@ MIN_GAP = 200                   # wet must stay at least this far below dry
 
 _TICKS_MASK = 0x3FFFFFFF        # MicroPython's ticks_ms() wraps at 2**30
 _HOUR_MS = 3600000
+_DAY_MS = 86400000
 
 
 def elapsed_ms(now, since):
@@ -49,7 +51,8 @@ class WateringController:
     def __init__(self, read_soil, reservoir_ok, dry_threshold, wet_threshold,
                  pump_ms, soak_ms, max_bursts, cooldown_ms, check_ms,
                  manual_pump_ms=5000, manual_gap_ms=10000,
-                 manual_timeout_ms=600000, manual_budget_ms=60000):
+                 manual_timeout_ms=600000, manual_budget_ms=60000,
+                 auto_daily_budget_ms=None):
         self.read_soil = read_soil
         self.reservoir_ok = reservoir_ok
         self.dry_threshold = dry_threshold
@@ -64,6 +67,8 @@ class WateringController:
         self.manual_gap_ms = manual_gap_ms          # rest between bursts
         self.manual_timeout_ms = manual_timeout_ms  # idle time before Auto
         self.manual_budget_ms = manual_budget_ms    # pump time per hour
+        # Most automatic pump time in any 24 hours (None = no cap).
+        self.auto_daily_budget_ms = auto_daily_budget_ms
 
         self.mode = MODE_AUTO       # always starts in Auto
         self.state = IDLE
@@ -78,6 +83,8 @@ class WateringController:
         self._manual_end = None     # when the last manual burst ended
         self._budget_start = None   # start of the current hour window
         self._budget_used = 0       # manual pump ms used in this window
+        self._auto_budget_start = None  # start of the current 24-hour window
+        self._auto_budget_used = 0      # automatic pump ms used in it
 
     @property
     def pump_on(self):
@@ -126,6 +133,20 @@ class WateringController:
             self._enter(IDLE, now_ms, "auto mode: automatic watering resumed")
         return self.mode
 
+    def _auto_burst_allowed(self, now_ms):
+        # True (and the burst is counted) if the 24-hour cap allows another
+        # automatic burst. Always True when no cap is set.
+        if self.auto_daily_budget_ms is None:
+            return True
+        if (self._auto_budget_start is None
+                or elapsed_ms(now_ms, self._auto_budget_start) >= _DAY_MS):
+            self._auto_budget_start = now_ms
+            self._auto_budget_used = 0
+        if self._auto_budget_used + self.pump_ms > self.auto_daily_budget_ms:
+            return False
+        self._auto_budget_used += self.pump_ms
+        return True
+
     def _try_manual_burst(self, now_ms):
         if not self.reservoir_ok():
             self.fault = FAULT_RESERVOIR_LOW
@@ -164,9 +185,14 @@ class WateringController:
                 self.last_soil = self.read_soil()
                 if self.last_soil > self.dry_threshold:
                     if self.reservoir_ok():
-                        self.bursts = 1
-                        self.fault = FAULT_NONE
-                        self._enter(PUMPING, now_ms, "soil dry: burst 1")
+                        if self._auto_burst_allowed(now_ms):
+                            self.bursts = 1
+                            self.fault = FAULT_NONE
+                            self._enter(PUMPING, now_ms, "soil dry: burst 1")
+                        else:
+                            self.fault = FAULT_DAILY_LIMIT
+                            self.message = ("soil is dry but the daily pump "
+                                            "limit is reached: not watering")
                     else:
                         self.fault = FAULT_RESERVOIR_LOW
                         self.message = ("soil is dry but reservoir is low: "
@@ -203,6 +229,12 @@ class WateringController:
                     self.fault = FAULT_RESERVOIR_LOW
                     self._enter(IDLE, now_ms,
                                 "reservoir low: stopped before next burst")
+                elif not self._auto_burst_allowed(now_ms):
+                    self.bursts = 0
+                    self.fault = FAULT_DAILY_LIMIT
+                    self._enter(IDLE, now_ms,
+                                "daily pump limit reached: stopped before "
+                                "next burst")
                 else:
                     self.bursts += 1
                     self.fault = FAULT_NONE

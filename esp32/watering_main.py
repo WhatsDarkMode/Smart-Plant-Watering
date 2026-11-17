@@ -1,12 +1,3 @@
-# Stage 3: the watering controller on the ESP32, with Modbus TCP.
-# Needs controller.py, config.py and the umodbus library on the board.
-# Run from Thonny while testing. Do NOT save as main.py until you have
-# checked it on the real plant.
-#
-# Local control comes first: the controller runs whether or not WiFi, the
-# Modbus library or Ignition are available. Nothing in the Modbus code is
-# allowed to block the loop or stop it.
-
 from machine import ADC, Pin
 
 # ---------- Relay first: off before anything else happens ----------
@@ -43,6 +34,10 @@ MAX_BURSTS = 3            # most bursts in one watering episode
 COOLDOWN_SECONDS = 1800   # rest after an episode where the soil didn't respond
 CHECK_SECONDS = 60        # how often to check the soil normally
 
+# Automatic pumping is capped per 24 hours, whatever the soil says. This
+# limits flooding or dry running if a probe, tube or float misbehaves.
+AUTO_DAILY_BUDGET_SECONDS = 60
+
 # Manual mode (from Ignition). Fixed here, never settable over Modbus.
 MANUAL_PUMP_SECONDS = 5       # one manual burst
 MANUAL_GAP_SECONDS = 10       # rest between manual bursts
@@ -69,7 +64,7 @@ IREG_STATE = 1            # 0 idle 1 pumping 2 soaking 3 cooldown
 IREG_BURSTS = 2           # bursts so far in this episode
 IREG_HEARTBEAT = 3        # seconds counter, wraps at 65535
 IREG_FAULT = 4            # 0 ok 1 reservoir low 2 manual refused
-                          # 3 soil not responding
+                          # 3 soil not responding 4 daily pump limit
 IREG_PUMP_ON = 5          # 0 or 1
 IREG_RESERVOIR_OK = 6     # 0 or 1
 # There are deliberately no discrete inputs: the library returns the bits
@@ -108,6 +103,7 @@ controller = WateringController(
     manual_gap_ms=MANUAL_GAP_SECONDS * 1000,
     manual_timeout_ms=MANUAL_TIMEOUT_SECONDS * 1000,
     manual_budget_ms=MANUAL_BUDGET_SECONDS * 1000,
+    auto_daily_budget_ms=AUTO_DAILY_BUDGET_SECONDS * 1000,
 )
 
 # ---------- WiFi (never blocks) ----------
