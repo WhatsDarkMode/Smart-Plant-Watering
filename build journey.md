@@ -599,5 +599,54 @@
       expression and a 'DailyLimitReached' alarm ('Fault' equal to 4,
       High). [Confirm done.]
 
-26. Packaging the rig. [Fill in as you go.]
-    - Got a cardboard box and cut some holes in it
+26. Packaged the rig and ran it from the charger instead of the PC.
+    - Put the electronics (ESP32, relay, USB adapters) in a cardboard box,
+      above the water level, with the pump, reservoir and plant outside
+      it. [Plant in a tray to catch overflow.]
+    - Powered the ESP32 from a USB charger. [Checked it booted and
+      reconnected to WiFi without the PC, and that Ignition's device
+      showed Connected with the heartbeat counting.]
+    - [Reserved the ESP32's address (192.168.1.67) in the router by its
+      MAC address, so Ignition doesn't lose it after a reboot.]
+    - [Created 'main.py' on the board containing only 'import
+      watering_main', and did the power-cycle test: the relay stayed off
+      during boot and the controller started normally.]
+    - Soil readings, reservoir status and the other tags all looked
+      right in Ignition while running unattended from the charger.
+
+27. Pump clicked but didn't pump after boxing up: a loose wire.
+    - Symptom: with the rig running from the charger, I switched to Manual
+      in Ignition and pressed 'Pump now'. The relay clicked but no water
+      moved. Everything else looked normal (soil readings, reservoir OK,
+      mode and state changing).
+    - Reasoning: the click only proves the ESP32 drove the relay's coil.
+      It doesn't prove the relay's contacts are passing current to the
+      pump, so the fault had to be in the pump's own circuit: charger,
+      male adapter, relay COM and NO, female adapter, pump.
+    - Checked the wiring against the design: relay NO to the female
+      adapter's +, relay COM to the male adapter's +, and the male
+      adapter's - straight to the female adapter's -. It matched on
+      paper.
+    - Plugged the pump straight into the charger, in water: it ran. So
+      the pump and charger were fine, and the fault was between them.
+      [Bypassed the relay by joining the COM and NO wires together:
+      confirm whether I did this, and what it showed.]
+    - Cause: a loose cable between the relay and the adapters. [Say which
+      one: COM, NO, or an adapter terminal.] Re-fitted it, and the pump
+      ran from the Pump now button again. [Tug-tested every terminal on
+      the pump circuit afterwards.]
+    - This is the second time a wire on the pump side has worked loose
+      (the first was the + wire on the female adapter). Both times it was
+      after the wires had been moved. [Added strain relief: tied or taped
+      the wires so they can't be pulled.]
+    - Lessons:
+        - 'PumpOn' in Ignition is what the controller commanded, not proof
+          that the pump moved water. A dead pump circuit looked like a
+          working system, because nothing measures flow or current.
+        - In Auto mode the same fault would show up on its own: three
+          bursts with no soil response raises the 'SoilNotResponding'
+          alarm, and the daily cap limits the pumping while it does. I
+          saw it in Manual mode only because I was watching the pump.
+        - A click means the coil works, not the load circuit. Split a
+          fault like this in half: pump straight to the charger first,
+          then the wiring.
