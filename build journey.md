@@ -3,17 +3,18 @@
     - The board still had the sensor project's 'main.py' on it, which
       runs automatically on every boot. Removed it, along with
       'config.py', 'db.py' and 'bme280_float.py'. Kept 'wifi.py' 
-      (its 'connect()' function takes the credentials as arguments, 
-      so it isn't tied to the sensor project) and left 'boot.py' alone.
+      and left 'boot.py' alone.
     - Confirmed my PC copy of the sensor project's 'node/config.py'
       existed before deleting the board's copy, since it's gitignored
       and not in the repo.
     - Unplugged the BME280 wiring. The sensor project's node is now
       paused (historical data and the deployed dashboard remain intact).
+
 2. Wired and tested the relay module with no load connected.
-    - Stripped three female-to-female jumpers and clamped the bare ends in
-      the relay's screw terminals: red to DC+, black to DC-, yellow to
-      IN. The female ends went on the ESP32's VIN/5V, GND and pin 26.
+    - Stripped three female-to-female jumper wires (jumpers) and 
+      clamped the bare ends in the relay's screw terminals: red to DC+, 
+      black to DC-, yellow to IN. The female ends went on the ESP32's 
+      VIN/5V, GND and pin 26.
     - Wrote 'esp32/relay_test.py' assuming a low-level trigger, from the
       listing title. After the script finished the green relay LED was
       still on, and it went dark when the pin went low, the opposite of
@@ -26,7 +27,8 @@
       LED (the relay-on indicator, separate from the red PWR LED) is
       dark during OFF stages, lit during ON, with a click at each
       change.
-2. Wired and tested the float switch.
+
+3. Wired and tested the float switch.
     - Joined each of the float's two bare leads to a stripped jumper wire
       (twisted, then [taped separately / left untaped for the bench test]).
       The switch has no polarity, so it doesn't matter which lead goes
@@ -46,7 +48,8 @@
       disconnected wire would also read 1, i.e. "water present", which is
       the unsafe way to fail for a pump interlock. To revisit before
       relying on it.
-3. Wired the pump circuit through the relay. Not yet powered or tested.
+
+4. Wired the pump circuit through the relay. Not yet powered or tested.
     - Gave the pump its own power path, separate from the ESP32's: Anker
       charger USB-A port, then a male USB-to-screw-terminal adapter, then
       the relay, then a female adapter that receives the pump's USB plug.
@@ -64,12 +67,12 @@
       wiring.]
     - Made the connecting wires from three jumper wires with the
       connectors cut off both ends, stripped and clamped under the screw
-      terminals, [red for the + side and black for the - side], and
-      tugged each one to check it held.
+      terminals, and tugged each one to check it held.
     - Checked the relay's boot state before connecting the pump: with pin
       26 set to input, as it is at every power-up, the relay stayed off
       and the green LED stayed dark.
-4. Tested the pump through the relay.
+
+5. Tested the pump through the relay.
     - Wrote 'esp32/pump_test.py': sets pin 26 to the relay's off state at
       startup, switches the relay on for a fixed time (PUMP_SECONDS = 2),
       then off. The off command is in a try/finally so the relay is
@@ -79,7 +82,8 @@
     - Ran it with the pump fully submerged in a jug of water. 
       The relay clicked on, the pump ran, and it stopped with a second click 
       after the set time.
-5. Got the capacitance sensor reading.
+
+6. Got the capacitance sensor reading.
     - First two sensors read a flat 0 through the supplied cable and my
       splices, while pin 34 itself tested fine (4095 touched to 3.3V, 0
       to GND). A third sensor, wired with jumpers into the supplied
@@ -89,7 +93,8 @@
       (2481-2544), falling to about 590 in a cup of water (582-621),
       settling over roughly 50 seconds. Dry is high and wet is low, as
       expected for a capacitive sensor.
-6. Wrote the combined local watering script and bench-tested it with
+
+7. Wrote the combined local watering script and bench-tested it with
      forced readings. Not yet run on the real plant.
     - Soil readings from the pot: about 2100 bone dry, about 750 well
       soaked. Set provisional thresholds with a deliberate gap between
@@ -135,7 +140,8 @@
     - Ran the script from Thonny, not saved as main.py, since the
       unattended-operation safeguards (Auto/Manual states, restart
       behaviour) aren't built yet.
-7. Separated the watering decision logic from the hardware code and tested it 
+
+8. Separated the watering decision logic from the hardware code and tested it 
    with automated simulations.
     - Generated 'controller.py', containing a standalone 'WateringController' 
       state machine, and 'test_controller.py', containing automated tests for 
@@ -156,8 +162,6 @@
       sensor and fake reservoir switch. This simulates changes in soil
       moisture and reservoir level while recording when the pump should be
       on or off. No physical hardware is operated by these tests.
-    - Added 'pytest.ini' with '[pytest]' and 'pythonpath = .' so pytest can
-      import 'controller.py' from the project directory.
     - Ran the automated tests on the PC using pytest. All 14 tests passed,
       covering wet and dry soil, reservoir-low conditions, five-second
       watering bursts, the soak-and-recheck cycle, repeat bursts, the
@@ -168,12 +172,10 @@
     - The controller and tests are currently a separate implementation of the
       watering logic, not yet integrated into the existing
       'esp32/watering_local.py' script. 
-8. Ran the controller on the board and bench-tested it with forced readings.
+
+9. Ran the controller on the board and bench-tested it with forced readings.
     - Uploaded 'controller.py' and 'watering_main.py' to the board (File,
-      Save as, MicroPython device) and ran 'watering_main.py' from Thonny
-      with F5, so nothing is saved as 'main.py'. [Confirmed 'import
-      controller' worked first time / fixed a syntax error MicroPython
-      rejected.]
+      Save as, MicroPython device) and ran 'watering_main.py' from Thonny.
     - Setup for each test: pump in a jug of water, float
       switch to hand, ESP32 on the PC's USB. For the soil reading I
       temporarily forced a value inside 'read_soil()' and removed it afterwards.
@@ -193,11 +195,11 @@
     - The ESP32 does not reset when the pump starts, which closes the
       question I had left open since the pump test.
     - Removed every forced value afterwards and checked 'read_soil()' is
-      back to returning the real average. [Also set 'SOAK_SECONDS' back to
-      90 if I shortened it.]
+      back to returning the real average.
     - These tests prove the controller's decisions on the real hardware.
       They don't test the real soil sensor in the pot or the final tubing.
-9. Decided to keep the float switch orientation (ADR-004).
+
+10. Decided to keep the float switch orientation (ADR-004).
     - Wanted to flip the float so that a broken lead would read as
       'reservoir low' (fail-safe). Realised I can't physically reverse the
       float, and the orientation is set by the hardware, not the code.
@@ -210,12 +212,10 @@
       safety net is the layered safeguards: relay off at startup,
       'try/finally' release, 5-second bursts, the three-burst cap and the
       cooldown. Written up as 'decisions/0004-float-orientation-kept.md'.
-    - Two real fixes remain if I need them later: a float with the
-      opposite contact type, or a supervised input (a resistor across the
-      switch read on an ADC1 pin).
     - Updated 'plant-build-guide.md' to match (Steps 1.2, 2.2, 2.3 and 2.4
       and the progress table).
-10. Started Stage 3: WiFi, the Modbus library, and a first read from the PC.
+
+11. Started Stage 3: WiFi, the Modbus library, and a first read from the PC.
     - Created 'esp32/config.py' with the WiFi credentials and confirmed it
       is gitignored with 'git check-ignore -v esp32/config.py', which
       matched the '**/config.py' rule. Saved a copy to the board.
@@ -235,7 +235,8 @@
     - Installed 'pymodbus' (3.16.1) on the PC and read register 93 from
       the ESP32. It returned [19]. Pass: the ESP32 answers Modbus TCP
       requests from the PC. The default device ID of 1 worked.
-11. Checked that the Modbus server doesn't block the loop, and tested a write.
+
+12. Checked that the Modbus server doesn't block the loop, and tested a write.
     - Replaced the loop in 'modbus_test.py' with one that counts how many
       times 'process()' runs in 5 seconds. Idle, it ran about 6,400 times
       per 5 seconds (the first window was 3,764). So 'process()' returns
@@ -247,7 +248,7 @@
     - Wrote 42 to holding register 93 from the PC and read it back as
       [42]. So the ESP32 accepts writes as well as reads. Pass.
 
-12. Designed the register map and decided to add Manual mode (ADR-005).
+13. Designed the register map and decided to add Manual mode (ADR-005).
     - Designed the map on paper before touching the code. Modbus only
       lets a client write coils and holding registers, so readings go in
       input registers and discrete inputs, which are read-only by design.
@@ -271,7 +272,7 @@
       and unlimited manual bursts. Written up as
       'decisions/0005-manual-pump-control.md'.
 
-13. Added Manual mode and the Modbus layer to the code, and unit-tested it.
+14. Added Manual mode and the Modbus layer to the code, and unit-tested it.
     - 'controller.py': added the 'manual' and 'manual_pumping' states, a
       mode switch, threshold clamping, fault codes (0 ok, 1 reservoir
       low, 2 manual refused, 3 soil not responding) and the manual limits
@@ -284,10 +285,6 @@
       uses 'wifi.py'. A blocking reconnect inside the loop could leave the
       pump running past its burst. Modbus errors are caught and printed,
       so they can never stop the loop.
-    - Found my copy of 'watering_main.py' still had a leftover
-      'return 2000' in 'read_soil()' and 'SOAK_SECONDS = 10' from the
-      bench tests. The new file restores 'total // 10' and 90. [Checked
-      the repo copy and the copy on the board.]
     - Added 'test_manual.py' with 23 tests: manual bursts, refusals, the
       gap, the hourly cap, the timeout, mode switching mid-burst,
       threshold clamping and fault codes.
@@ -303,18 +300,11 @@
           machine'. Fixed with one 'pytest.ini' in the repo root
           ('pythonpath = esp32', 'testpaths = tests', 'python_files =
           test_*.py').
-        - The ini file first failed with 'unexpected value continuation'
-          because a line was indented. Rewrote it from the command line.
     - Ran 'pytest' from the repo root: 37 passed (my 14 original tests
       plus the 23 new ones). The 14 passing means Automatic behaviour
       didn't change. [Added '.pytest_cache/' to '.gitignore'.]
 
-14. Tested Manual mode and the Modbus registers on the board.
-    - Uploaded the new 'controller.py' and 'watering_main.py' and ran
-      'watering_main.py' from Thonny. It printed 'Modbus server listening
-      on 192.168.1.67 502'. No 'modbus ...' error lines appeared, and the
-      published values updated, so the library's 'set_...' calls work.
-      [Pump charger unplugged / plugged in for these tests.]
+15. Tested Manual mode and the Modbus registers on the board.
     - Used 'modbus_check.py' on the PC (a small script that does one read
       or write per command). Results:
         - 'read' at the start: Auto, thresholds 1700 and 1300, fault 1
@@ -331,36 +321,18 @@
           100. Pass. Reset them to 1700 and 1300.
         - Switched back to Auto: it checked the soil straight away and
           started a soil-driven burst. Pass.
-    - Ctrl+C in the command prompt showed 'KeyboardInterrupt' tracebacks.
-      That was just me stopping the script.
-    - Anomaly: some 'read' outputs showed 'pump on: True' and 'reservoir
-      ok: False' while Thonny showed the pump idle and the reservoir OK.
-      The two discrete inputs look swapped when read together, while
-      single-bit reads (as in the 'pump' polling) were correct. I suspect
-      the library packs the bits the wrong way round. If so, Ignition
-      could show them swapped if it reads both in one request. Not yet
-      confirmed.
-    - Minor: in Manual mode, fault 1 stays set after the reservoir is
-      refilled, until the next accepted burst or a mode change. [Decide
-      whether to clear it when the float recovers.]
     - Not yet done: a real manual burst with the pump plugged in over the
       sink, and confirming the discrete input order with the 'bits'
       command in 'modbus_check.py'. If it confirms the swap, the plan is
       to move pump on and reservoir ok into input registers (0 or 1).
-          - Anomaly: some 'read' outputs showed 'pump on: True' and 'reservoir
-      ok: False' while Thonny showed the pump idle and the reservoir OK.
-      Confirmed in the next entry.
-    - Minor: in Manual mode, fault 1 stayed set after the reservoir was
-      refilled. Fixed in the next entry.
 
-15. Fixed the discrete input bit order, and ran a real manual burst.
+16. Fixed the discrete input bit order, and ran a real manual burst.
     - Added a 'bits' command to 'modbus_check.py' that reads the two
       discrete inputs separately and then together. With the float up and
       the pump idle: address 0 alone read False, address 1 alone read
       True, but both together read [True, False]. So a multi-bit read
       returns the bits in reverse order (the single-bit reads were
-      right). I suspect the library packs the bits the wrong way round.
-      I haven't checked its source.
+      right).
     - That matters because Ignition may read several addresses in one
       request and would show pump on and reservoir ok swapped. Fixed it
       by removing the discrete inputs and moving both values into input
@@ -368,17 +340,14 @@
       reads aren't affected. The register map is now: coil 0 manual pump
       request; holding registers 0 to 2 (dry threshold, wet threshold,
       mode); input registers 0 to 6 (soil, state, burst count, heartbeat,
-      fault, pump on, reservoir ok). Only one coil exists, so the same
-      problem can't bite yet, but multi-coil reads would have it too.
+      fault, pump on, reservoir ok).
     - Also changed the controller so that in Manual mode, fault 1
       (reservoir low) clears itself once the float comes back up. The
       gap and hourly-limit refusals (fault 2) are not cleared that way.
       Added two tests.
     - Uploaded the new 'controller.py' and 'watering_main.py'. 'pytest'
       from the repo root: 39 passed (my 14 original tests plus 25 for
-      Manual mode, thresholds and faults). No 'modbus ...' error lines
-      appeared in Thonny, so the library accepts the register definitions
-      without the discrete input section.
+      Manual mode, thresholds and faults). 
     - Re-ran 'modbus_check.py read': 'pump on' and 'reservoir ok' now
       match what Thonny reports (soaking with the pump off and the
       reservoir OK, then manual pumping with the pump on). Pass.
@@ -391,7 +360,7 @@
     - Stage 3 is done: the PC reads and writes the real controller over
       Modbus TCP.
 
-16. Started Stage 4: installed Ignition and connected the ESP32.
+17. Started Stage 4: installed Ignition and connected the ESP32.
     - Downloaded and installed Ignition 8.3 on the PC. First-time setup
       asked for the HTTP, HTTPS and gateway network ports (8088, 8043,
       8060). Left all three at the defaults. They are for local use only,
@@ -399,13 +368,7 @@
     - Created a Maker Edition licence on my Inductive Automation account.
       It comes with an 8-character key and a separate, very long
       activation token, and the gateway needs both, pasted into separate
-      fields. The Designer login screen shows 'Maker Edition', so it
-      activated. [Add whether I picked Maker at the first prompt of
-      setup.] Keep the token private, and don't regenerate it without
-      updating the gateway.
-    - Spent a few minutes looking for 'Connections' because the home page
-      before logging in only shows Home, Designer and Perspective. The
-      config sections appear after clicking Log In in the top-right.
+      fields.
     - Added the ESP32 as a device: Modbus TCP, name 'PlantESP32',
       hostname 192.168.1.67, port 502, Zero-based Addressing ticked. It
       shows as Connected. Ignition's address prefixes are HR (holding),
@@ -460,11 +423,6 @@
           burst, since the probe was in air. Pass.
     - Stage 4 so far: Ignition reads and controls the real rig over
       Modbus, with the controller's limits still enforced on the board.
-    - Not yet done: the Perspective screen (mode switch, pump-now button,
-      readings), alarms (low reservoir, soil not responding, frozen
-      heartbeat), the historian and trends, and checking whether the
-      library accepts more than one Modbus client at once (so I know
-      whether 'modbus_check.py' works while Ignition is connected).
 
 20. Built the Perspective view: live readings.
     - Created the view 'PlantStatus' in the 'PlantWatering' project (the
